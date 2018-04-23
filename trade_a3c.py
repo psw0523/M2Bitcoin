@@ -15,8 +15,8 @@ episode = 0
 EPISODES = 8000000
 
 def build_model(state_size, action_size):
-    input = Input(shape=state_size)
-    d = Dense(24, activation='relu')
+    input = Input(shape=(state_size,))
+    d = Dense(24, activation='relu')(input)
     d = Dense(24, activation='relu')(d)
 
     policy = Dense(action_size, activation='softmax')(d)
@@ -44,6 +44,7 @@ class A3CAgent:
         self.actor_lr = 2.5e-4
         self.critic_lr = 2.5e-4
         self.threads = 8
+        self.env = env
 
         # create policy network and value network
         self.actor, self.critic = build_model(self.state_size, self.action_size)
@@ -53,7 +54,7 @@ class A3CAgent:
         # config tensorboard
         self.sess = tf.InteractiveSession()
         K.set_session(self.sess)
-        self.sess.run(tf.global_vairables_initializer())
+        self.sess.run(tf.global_variables_initializer())
 
         self.summary_placeholders, self.update_ops, self.summary_op = \
                 self.setup_summary()
@@ -61,7 +62,7 @@ class A3CAgent:
                 tf.summary.FileWriter('summary/m2bitcoin_a3c', self.sess.graph)
 
     def train(self):
-        agents = [Agent(env,
+        agents = [Agent(self.env,
                         [self.actor, self.critic],
                         self.sess, self.optimizer, self.discount_factor,
                         [self.summary_op, self.summary_placeholders, self.update_ops, self.summary_writer])
@@ -143,7 +144,7 @@ class A3CAgent:
 class Agent(threading.Thread):
     def __init__(self, env, model, sess, optimizer,
             discount_factor, summary_ops):
-        theading.Thread.__init__(self)
+        threading.Thread.__init__(self)
 
         self.env = env
         self.state_size = env.state_size()
