@@ -1,5 +1,5 @@
 import time
-#  import numpy as np
+import numpy as np
 #  from exchange import Exchange
 from bithumb import BithumbExchange
 from enum import Enum
@@ -113,6 +113,7 @@ class Env():
         return 3
 
     def get_states(self):
+        time.sleep(1)
         ticker = self.exchange.get_ticker(self.currency)
         orderbook = self.exchange.get_orderbook(self.currency, self.data_count)
         #  recents = self.exchange.get_recent(self.currency, self.data_count)
@@ -201,6 +202,7 @@ class Env():
         #          u = -u
         #      states.append(u)
 
+        states = np.array(states)
         return last, states
 
 
