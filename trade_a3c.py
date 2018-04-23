@@ -156,7 +156,7 @@ class Agent(threading.Thread):
         [self.summary_op, self.summary_placeholders, self.update_ops,
                 self.summary_writer] = summary_ops
 
-        self.state, self.actions, self.rewards = [], [], []
+        self.states, self.actions, self.rewards = [], [], []
 
         self.local_actor, self.local_critic = build_model(self.state_size,
                 self.action_size)
@@ -184,10 +184,12 @@ class Agent(threading.Thread):
                 step += 1
                 self.t += 1
                 action, policy = self.get_action(state)
+                print("action -> ", action)
+                print("policy -> ", policy)
 
                 next_state, reward, done, info = env.step(action)
 
-                self.avg_p_max += np.amax(self.actor.predict(next_state))
+                self.avg_p_max += np.amax(self.actor.predict(next_state.reshape((1, self.state_size))))
 
                 score += reward
                 reward = np.clip(reward, -1., 1.)
@@ -253,7 +255,7 @@ class Agent(threading.Thread):
         self.local_critic.set_weights(self.critic.get_weights())
 
     def get_action(self, state):
-        policy = self.local_actor.predict(state)[0]
+        policy = self.local_actor.predict(state.reshape(1, self.state_size))[0]
         action_index = np.random.choice(self.action_size, 1, p=policy)[0]
         return action_index, policy
 
