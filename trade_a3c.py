@@ -265,5 +265,5 @@ class Agent(threading.Thread):
 
 
 if __name__ == "__main__":
-    global_agent = A3CAgent(Env())
+    global_agent = A3CAgent(Env(5000*10000))
     global_agent.train()
