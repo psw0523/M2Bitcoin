@@ -8,6 +8,7 @@ import numpy as np
 import threading
 import random
 import time
+import sys, getopt
 
 # global variables for multi-threading
 global episode
@@ -289,6 +290,23 @@ class Agent(threading.Thread):
         self.rewards.append(reward)
 
 
+# TRADE_CURRENCY_TYPE = ["BTC", "ETH", "DASH", "LTC", "ETC", "XRP", "BCH",
+#         "XMR", "ZEC", "QTUM", "BTG", "EOS", "ICX", "VEN", "TRX", "ELF",
+#         "MITH"]
+# -e Bithumb ...
+# -c BTC
 if __name__ == "__main__":
-    global_agent = A3CAgent(Env(5000*10000))
+    myopts, args = getopt.getopt(sys.argv[1:], "c:e:")
+    exchange = 'Bithumb'
+    currency = 'BTC'
+
+    for o, a in myopts:
+        if o == '-e':
+            exchange = a
+        elif o == '-c':
+            currency = a
+        else:
+            print("Usage: %s -e exchange -c currency" % sys.argv[0])
+
+    global_agent = A3CAgent(Env(5000*10000, exchange=exchange, currency=currency))
     global_agent.train()
