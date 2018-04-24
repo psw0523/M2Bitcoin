@@ -14,25 +14,6 @@ global episode
 episode = 0
 EPISODES = 8000000
 
-def build_model(state_size, action_size):
-    input = Input(shape=(state_size,))
-    d = Dense(24, activation='relu')(input)
-    d = Dense(24, activation='relu')(d)
-
-    policy = Dense(action_size, activation='softmax')(d)
-    value = Dense(1, activation='linear')(d)
-
-    actor = Model(inputs=input, outputs=policy)
-    critic = Model(inputs=input, outputs=value)
-
-    actor._make_predict_function()
-    critic._make_predict_function()
-
-    actor.summary()
-    critic.summary()
-
-    return actor, critic
-
 
 class A3CAgent:
     def __init__(self, env):
@@ -47,7 +28,7 @@ class A3CAgent:
         self.env = env
 
         # create policy network and value network
-        self.actor, self.critic = build_model(self.state_size, self.action_size)
+        self.actor, self.critic = self.build_model(self.state_size, self.action_size)
         # create update function
         self.optimizer = [self.actor_optimizer(), self.critic_optimizer()]
 
@@ -60,6 +41,25 @@ class A3CAgent:
                 self.setup_summary()
         self.summary_writer = \
                 tf.summary.FileWriter('summary/m2bitcoin_a3c', self.sess.graph)
+
+    def build_model(self, state_size, action_size):
+        input = Input(shape=(state_size,))
+        d = Dense(24, activation='relu')(input)
+        d = Dense(24, activation='relu')(d)
+
+        policy = Dense(action_size, activation='softmax')(d)
+        value = Dense(1, activation='linear')(d)
+
+        actor = Model(inputs=input, outputs=policy)
+        critic = Model(inputs=input, outputs=value)
+
+        actor._make_predict_function()
+        critic._make_predict_function()
+
+        actor.summary()
+        critic.summary()
+
+        return actor, critic
 
     def train(self):
         agents = [Agent(self.env,
@@ -158,7 +158,7 @@ class Agent(threading.Thread):
 
         self.states, self.actions, self.rewards = [], [], []
 
-        self.local_actor, self.local_critic = build_model(self.state_size,
+        self.local_actor, self.local_critic = self.build_local_model(self.state_size,
                 self.action_size)
 
         self.avg_p_max = 0
@@ -167,6 +167,28 @@ class Agent(threading.Thread):
         # cycle to update model
         self.t_max = 20
         self.t = 0
+
+    def build_local_model(self, state_size, action_size):
+        input = Input(shape=(state_size,))
+        d = Dense(24, activation='relu')(input)
+        d = Dense(24, activation='relu')(d)
+
+        policy = Dense(action_size, activation='softmax')(d)
+        value = Dense(1, activation='linear')(d)
+
+        local_actor = Model(inputs=input, outputs=policy)
+        local_critic = Model(inputs=input, outputs=value)
+
+        local_actor._make_predict_function()
+        local_critic._make_predict_function()
+
+        local_actor.set_weights(self.actor.get_weights())
+        local_critic.set_weights(self.critic.get_weights())
+
+        local_actor.summary()
+        local_critic.summary()
+
+        return local_actor, local_critic
 
     def run(self):
         global episode
@@ -224,7 +246,7 @@ class Agent(threading.Thread):
         running_add = 0
 
         if not done:
-            running_add = self.critic.predict(self.states[-1])[0]
+            running_add = self.critic.predict(self.states[-1].reshape(1, self.state_size))[0]
 
         for t in reversed(range(0, len(rewards))):
             running_add = running_add * self.discount_factor + rewards[t]
@@ -236,7 +258,7 @@ class Agent(threading.Thread):
     def train_model(self, done):
         discounted_prediction = self.discounted_prediction(self.rewards, done)
 
-        states = np.zeros(len(self.states))
+        states = np.zeros((len(self.states), 47))
         for i in range(len(self.states)):
             states[i] = self.states[i]
 
