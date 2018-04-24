@@ -206,8 +206,8 @@ class Agent(threading.Thread):
                 step += 1
                 self.t += 1
                 action, policy = self.get_action(state)
-                print("action -> ", action)
-                print("policy -> ", policy)
+                # print("action -> ", action)
+                # print("policy -> ", policy)
 
                 next_state, reward, done, info = env.step(action)
 
@@ -258,7 +258,7 @@ class Agent(threading.Thread):
     def train_model(self, done):
         discounted_prediction = self.discounted_prediction(self.rewards, done)
 
-        states = np.zeros((len(self.states), 47))
+        states = np.zeros((len(self.states), self.state_size))
         for i in range(len(self.states)):
             states[i] = self.states[i]
 

@@ -1,80 +1,139 @@
 import time
 import numpy as np
+import math
 #  from exchange import Exchange
 from bithumb import BithumbExchange
-from enum import Enum
 
 
-class Action(Enum):
-    DO_NOTHING = 0
-    BUY = 1
-    SELL = 2
-
+DO_NOTHING = 0
+BUY = 1
+SELL = 2
 
 class Env():
-    def __init__(self, initial_investment, onetime_trade_percent=0.05):
+    def __init__(self, initial_investment, exchange="Bithumb", currency="BTC", percent_per_trade=0.05):
+        """
+        initial_investment: 초기 투자금
+        cash_asset: 보유 현금
+        average_cost: 평단
+        buy_count: 보유 물량
+        current_price: 현재 가격
+        cash_per_trade: 한번 거래에 사용하는 현금
+        fee_percent: 수수료 비율
+        earning_rate: 현재 수익률
+        """
         self.exchange = BithumbExchange()
-        self.currency = "BTC"
-        self.average_cost = 0.0
-        self.retention_amount = 0
-        self.data_count = 20
-        current_price, states = self.get_states()
-        self.current_price = current_price
-        self.states_size = len(states)
-        print("states_size -> ", self.states_size)
+        self.currency = currency
+
+        # account information
         self.initial_investment = initial_investment
-        self.onetime_trade_amount = \
-                self.initial_investment * onetime_trade_percent
-        self.investment = 0.0
-        self.remainder = initial_investment
-        self.fee_payment = 0.0
-        self.fee_percent = self.exchange.get_fee()
+        self.cash_asset = self.initial_investment
+        self.average_cost = 0
         self.buy_count = 0.0
+        self.current_price = 0
+        self.cash_per_trade = self.initial_investment * percent_per_trade
+        self.fee_percent = self.exchange.get_fee()
+        self.earning_rate = 0.0
+        self.fee_sum = 0
+        self.done = False
+
+        self.data_count = 20
+        _, states = self.get_states()
+        self.states_size = len(states)
+        self.action_dict = { DO_NOTHING: "DoNothing", BUY: "Buy", SELL: "Sell" }
 
     def reset(self):
         """
         return state(object)
         """
+        self.cash_asset = self.initial_investment
+        self.average_cost = 0
+        self.buy_count = 0.0
+        self.current_price = 0
+        self.earning_rate = 0.0
+        self.fee_sum = 0
+        self.done = False
+
         self.current_price, states = self.get_states()
         return states
+
+    def do_nothing(self):
+        reward = 0.0
+
+        # if self.buy_count > 0:
+        #     if self.average_cost > self.current_price:
+        #         reward = -0.0001
+        # else:
+        #     reward = -0.00001
+
+        return reward
 
     def buy(self):
         buy_count = 0.0
         buy_price = 0.0
         reward = 0.0
+        real_price = 0.0
+        cash_trade = 0
+        fee_per_unit = 0.0
 
-        if self.current_price > self.onetime_trade_amount:
-            buy_count = self.current_price / self.onetime_trade_amount
+        if self.cash_asset > self.cash_per_trade:
+            cash_trade = self.cash_per_trade
         else:
-            buy_count = self.onetime_trade_amount / self.current_price
+            cash_trade = self.cash_asset
 
-        buy_price = buy_count * self.current_price
-        fee = buy_price * self.fee_percent / 100;
-        if self.remainder > (buy_price + fee):
-            self.investment += buy_price
-            self.fee_payment += fee
-            self.remainder -= (buy_price + fee)
-            total_cost = self.buy_count * self.average_cost + buy_price * buy_count
+        fee_per_unit = self.current_price * self.fee_percent * 0.01
+        real_price = self.current_price + fee_per_unit
+
+        buy_count = cash_trade / real_price
+        buy_count = math.floor(buy_count * 100) / 100
+
+        buy_price = int(buy_count * real_price)
+        fee = int(buy_count * fee_per_unit)
+
+        if buy_count > 0:
+            self.cash_asset -= buy_price
+            total_buy_cost = self.buy_count * self.average_cost + self.current_price * buy_count
             self.buy_count += buy_count
-            self.average_cost = total_cost / self.buy_count
+            self.buy_count = math.floor(self.buy_count * 100) / 100
+            self.average_cost = int(total_buy_cost / self.buy_count)
+            self.fee_sum += fee
         else:
+            if self.buy_count <= 0:
+                self.done = True
             reward = -0.01
             
         return reward
 
     def sell(self):
-        sell_count = self.onetime_trade_amount
+        sell_count = 0.0
         reward = 0.0
+        cash_trade = 0
+        earning_rate = 0.0
 
-        sell_price = sell_count * self.current_price
-        if self.investment >= sell_price:
-            self.investment -= sell_price
+        sell_count = self.cash_per_trade / self.current_price
+        if self.buy_count < sell_count:
+            sell_count = self.buy_count
+        sell_count = math.floor(sell_count * 100) / 100
+
+        sell_price = int(sell_count * self.current_price)
+
+        if sell_count > 0:
             self.buy_count -= sell_count
-            self.remainder += sell_count
-            if self.current_price > self.average_cost:
-                profit = sell_price - self.average_cost * self.onetime_trade_amount
-                profit /= self.initial_investment
-                reward = profit
+            self.buy_count = math.floor(self.buy_count * 100) / 100
+            self.cash_asset += sell_price
+
+            # calculate earning_rate
+            # earning_rate = ((평단 * 수량 + 현금) - 초기투자금)/초기투자금
+            earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
+            reward = earning_rate - self.earning_rate
+            self.earning_rate = earning_rate
+
+            if self.buy_count <= 0:
+                self.buy_count = 0.0
+                self.average_cost = 0
+        else:
+            if self.cash_asset <= 0:
+                self.done = True
+            reward = -0.01
 
         return reward
 
@@ -84,26 +143,38 @@ class Env():
         """
         self.current_price, states = self.get_states()
         reward = 0.0
-        done = False
         info = {}
 
-        if action is Action.DO_NOTHING:
-            if self.retention_amount > 0:
-                if self.current_price < self.average_cost:
-                    reward = -0.0001
-            elif self.retention_amount == 0:
-                reward = -0.00001
-        elif action is Action.BUY:
-            if self.remainder == 0:
-                if self.current_price < self.average_cost:
-                    reward = -0.0001
-            else:
-                reward = self.buy()
-        elif action is Action.SELL:
-            if self.investment > 0:
-                reward = self.sell()
+        if action == DO_NOTHING:
+            reward = self.do_nothing()
+        elif action == BUY:
+            reward = self.buy()
+        elif action == SELL:
+            reward = self.sell()
 
-        return states, reward, done, info
+        info['initial_investment'] = self.initial_investment
+        info['cash_asset'] = self.cash_asset
+        info['average_cost'] = self.average_cost
+        info['buy_count'] = self.buy_count
+        info['current_price'] = self.current_price
+        info['cash_per_trade'] = self.cash_per_trade
+        info['fee_percent'] = self.fee_percent
+        info['earning_rate'] = self.earning_rate
+        info['last_action'] = self.action_dict[action]
+        info['fee_sum'] = self.fee_sum
+        info['last_reward'] = reward
+        info['done'] = self.done
+
+        total_asset = self.cash_asset + self.average_cost * self.buy_count
+        total_cost = self.fee_sum
+        # print("total_asset ---------> ", total_asset)
+        # print("total_cost ----------> ", total_cost)
+        print("calculate investment -> ", total_asset + total_cost)
+        print("initial_investment ---> ", self.initial_investment)
+
+        print(info)
+
+        return states, reward, self.done, info
 
     def state_size(self):
         return self.states_size
@@ -201,6 +272,14 @@ class Env():
         #      if t == 'ask':
         #          u = -u
         #      states.append(u)
+
+        # average_cont
+        if self.average_cost > 0:
+            val = self.average_cost
+            val = val - last
+            states.append(val)
+        else:
+            states.append(0)
 
         states = np.array(states)
         return last, states
