@@ -3,6 +3,7 @@ import numpy as np
 import math
 #  from exchange import Exchange
 from bithumb import BithumbExchange
+from korbit import KorbitExchange
 
 
 DO_NOTHING = 0
@@ -21,7 +22,13 @@ class Env():
         fee_percent: 수수료 비율
         earning_rate: 현재 수익률
         """
-        self.exchange = BithumbExchange()
+
+        self.exchange = None
+        if exchange == "Bithumb":
+            self.exchange = BithumbExchange()
+        elif exchange == "Korbit":
+            self.exchange = KorbitExchange()
+
         self.currency = currency
 
         # account information
@@ -227,7 +234,8 @@ class Env():
 
 
 if __name__ == "__main__":
-    env = Env(5000*10000)
+    # env = Env(5000*10000)
+    env = Env(5000*10000, exchange="Korbit")
     current_price, states = env.get_states()
     print(current_price)
     print(states)
