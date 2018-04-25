@@ -36,7 +36,6 @@ class Env():
         self.fee_sum = 0
         self.done = False
 
-        self.data_count = 20
         _, states = self.get_states()
         self.states_size = len(states)
         self.action_dict = { DO_NOTHING: "DoNothing", BUY: "Buy", SELL: "Sell" }
@@ -60,7 +59,7 @@ class Env():
         reward = 0.0
 
         # if self.buy_count > 0:
-        #     if self.average_cost > self.current_price:
+        #     if self.average_cost < self.current_price:
         #         reward = -0.0001
         # else:
         #     reward = -0.00001
@@ -96,10 +95,17 @@ class Env():
             self.buy_count = math.floor(self.buy_count * 100) / 100
             self.average_cost = int(total_buy_cost / self.buy_count)
             self.fee_sum += fee
+
+            earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
+            if self.earning_rate > 0:
+                reward = earning_rate - self.earning_rate
+            else:
+                reward = earning_rate
+            self.earning_rate = earning_rate
         else:
             if self.buy_count <= 0:
                 self.done = True
-            reward = -0.01
+            reward = -0.00001
             
         return reward
 
@@ -124,7 +130,10 @@ class Env():
             # calculate earning_rate
             # earning_rate = ((평단 * 수량 + 현금) - 초기투자금)/초기투자금
             earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            reward = earning_rate - self.earning_rate
+            if self.earning_rate > 0:
+                reward = earning_rate - self.earning_rate
+            else:
+                reward = earning_rate
             self.earning_rate = earning_rate
 
             if self.buy_count <= 0:
@@ -133,7 +142,7 @@ class Env():
         else:
             if self.cash_asset <= 0:
                 self.done = True
-            reward = -0.01
+            reward = -0.00001
 
         return reward
 
@@ -141,6 +150,9 @@ class Env():
         """
         return state(object), reward(float), done(bool), info(dict)
         """
+
+        time.sleep(3)
+
         self.current_price, states = self.get_states()
         reward = 0.0
         info = {}
@@ -169,9 +181,9 @@ class Env():
         total_cost = self.fee_sum
         # print("total_asset ---------> ", total_asset)
         # print("total_cost ----------> ", total_cost)
-        print("calculate investment -> ", total_asset + total_cost)
-        print("initial_investment ---> ", self.initial_investment)
-
+        # print("calculate investment -> ", total_asset + total_cost)
+        # print("initial_investment ---> ", self.initial_investment)
+        #
         print(info)
 
         return states, reward, self.done, info
@@ -184,102 +196,31 @@ class Env():
         return 3
 
     def get_states(self):
-        time.sleep(1)
-        ticker = self.exchange.get_ticker(self.currency)
-        orderbook = self.exchange.get_orderbook(self.currency, self.data_count)
-        #  recents = self.exchange.get_recent(self.currency, self.data_count)
+        condition = True
+        while condition:
+            time.sleep(1)
+            last, volume, states = self.exchange.get_states(self.currency)
+            if last != self.current_price:
+                condition = False
+            else:
+                time.sleep(1)
 
-        states = []
-        average = float(ticker['average'])
-        last = float(ticker['last'])
-
-        ## ticker
-        # start
-        val = float(ticker['start'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # last
-        val = float(ticker['last'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # bid
-        val = float(ticker['bid'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # ask
-        val = float(ticker['ask'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # high
-        val = float(ticker['high'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # low 
-        val = float(ticker['low'])
-        if val < average:
-            val = -val
-        val = val / average
-        states.append(val)
-
-        # volume
-        volume = float(ticker['volume'])
-        volume7 = float(ticker['volume7'])
-        val = volume / volume7
-        states.append(val)
-
-        ## orderbook
-        # basis = average
-        basis = last
-        bids = orderbook['bids']
-        for bid in bids:
-            q = float(bid['quantity'])
-            p = float(bid['price'])
-            if p < basis:
-                p = -p
-            p = p / basis 
-            q = q * p
-            states.append(q)
-
-        asks = orderbook['asks']
-        for ask in asks:
-            q = float(ask['quantity'])
-            p = float(ask['price'])
-            if p < basis:
-                p = -p
-            p = p / basis 
-            q = q * p
-            states.append(q)
-
-        ## recent
-        #  for recent in recents:
-        #      t = recent['type'].strip()
-        #      u = float(recent['units_traded'])
-        #      if t == 'ask':
-        #          u = -u
-        #      states.append(u)
-
-        # average_cont
+        # average_cost
+        val = self.average_cost
         if self.average_cost > 0:
-            val = self.average_cost
-            val = val - last
-            states.append(val)
-        else:
-            states.append(0)
+            val = val/last
+        states.append(val)
+
+        # cash percent
+        val = self.cash_asset / self.initial_investment
+        states.append(val)
+
+        # price change percent
+        margin = 0.0
+        if self.current_price > 0:
+            # margin = (last - self.current_price) / self.current_price
+            margin = last / self.current_price
+        states.append(margin)
 
         states = np.array(states)
         return last, states

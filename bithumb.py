@@ -21,6 +21,7 @@ class BithumbExchange(Exchange):
         self.CLIENT_ID = config['BITHUMB']['connect_key']
         self.CLIENT_SECRET = config['BITHUMB']['secret_key']
         self.USER_NAME = config['BITHUMB']['username']
+        self.data_count = 10
 
     def get_ticker(self, currency_type=None):
         if currency_type is None:
@@ -80,6 +81,75 @@ class BithumbExchange(Exchange):
 
     def get_fee(self):
         return 0.15
+
+    def get_states(self, currency):
+        ticker = self.get_ticker(currency)
+        orderbook = self.get_orderbook(currency, self.data_count)
+        recents = self.get_recent(currency, self.data_count)
+
+        states = []
+        last = float(ticker['last'])
+        volume = float(ticker['volume'])
+
+        basis = last
+
+        ## ticker
+        # bid
+        val = float(ticker['bid'])
+        val = val / basis
+        states.append(val)
+
+        # ask
+        val = float(ticker['ask'])
+        val = val / basis 
+        states.append(val)
+
+        # high
+        val = float(ticker['high'])
+        val = val / basis 
+        states.append(val)
+
+        # low 
+        val = float(ticker['low'])
+        val = val / basis 
+        states.append(val)
+
+        ## orderbook
+        bids = orderbook['bids']
+        for bid in bids:
+            q = float(bid['quantity'])
+            p = float(bid['price'])
+            p = p / basis 
+            q = q * p
+            states.append(q)
+
+        asks = orderbook['asks']
+        for ask in asks:
+            q = float(ask['quantity'])
+            p = float(ask['price'])
+            if p < basis:
+                p = -p
+            p = p / basis 
+            q = q * p
+            states.append(q)
+
+        ## recent
+        for recent in recents:
+            t = recent['type'].strip()
+            u = float(recent['units_traded'])
+            p = float(recent['price'])
+            if t == 'ask':
+                p = p / last
+                p = p * u
+                states.append(p)
+            else:
+                p = p / last
+                p = p * u
+                p = -p
+                states.append(p)
+
+        return last, volume, states
+
 
 if __name__ == "__main__":
     bitThumbExchange = BithumbExchange()

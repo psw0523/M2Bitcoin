@@ -16,3 +16,7 @@ class Exchange(ABC):
     @abstractmethod
     def get_fee(self):
         pass
+
+    @abstractmethod
+    def get_states(self, currency):
+        pass

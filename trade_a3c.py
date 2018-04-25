@@ -45,8 +45,12 @@ class A3CAgent:
 
     def build_model(self, state_size, action_size):
         input = Input(shape=(state_size,))
-        d = Dense(24, activation='relu')(input)
-        d = Dense(24, activation='relu')(d)
+        d = Dense(48, activation='relu',
+                kernel_initializer='he_uniform')(input)
+        d = Dense(48, activation='relu',
+                kernel_initializer='he_uniform')(d)
+        d = Dense(24, activation='relu',
+                kernel_initializer='he_uniform')(d)
 
         policy = Dense(action_size, activation='softmax')(d)
         value = Dense(1, activation='linear')(d)
@@ -171,8 +175,12 @@ class Agent(threading.Thread):
 
     def build_local_model(self, state_size, action_size):
         input = Input(shape=(state_size,))
-        d = Dense(24, activation='relu')(input)
-        d = Dense(24, activation='relu')(d)
+        d = Dense(48, activation='relu',
+                kernel_initializer='he_uniform')(input)
+        d = Dense(48, activation='relu',
+                kernel_initializer='he_uniform')(d)
+        d = Dense(24, activation='relu',
+                kernel_initializer='he_uniform')(d)
 
         policy = Dense(action_size, activation='softmax')(d)
         value = Dense(1, activation='linear')(d)
