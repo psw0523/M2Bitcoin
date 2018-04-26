@@ -104,7 +104,7 @@ class Env():
             self.fee_sum += fee
 
             earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            if self.earning_rate > 0:
+            if self.earning_rate != 0.0:
                 reward = earning_rate - self.earning_rate
             else:
                 reward = earning_rate
@@ -158,7 +158,7 @@ class Env():
         return state(object), reward(float), done(bool), info(dict)
         """
 
-        time.sleep(3)
+        # time.sleep(3)
 
         self.current_price, states = self.get_states()
         reward = 0.0
@@ -203,14 +203,16 @@ class Env():
         return 3
 
     def get_states(self):
-        condition = True
-        while condition:
-            time.sleep(1)
-            last, volume, states = self.exchange.get_states(self.currency)
-            if last != self.current_price:
-                condition = False
-            else:
-                time.sleep(1)
+        # condition = True
+        # while condition:
+        #     time.sleep(1)
+        #     last, volume, states = self.exchange.get_states(self.currency)
+        #     if last != self.current_price:
+        #         condition = False
+        #     else:
+        #         time.sleep(1)
+
+        last, volume, states = self.exchange.get_states(self.currency)
 
         # average_cost
         val = self.average_cost
