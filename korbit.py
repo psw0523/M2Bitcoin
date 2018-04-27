@@ -46,7 +46,7 @@ class KorbitExchange(Exchange):
         response_json = None
         try:
             response_json = res.json()
-        except JSONDecodeError as e:
+        except json.decoder.JSONDecodeError as e:
             print(e)
             return None
         else:
@@ -93,7 +93,7 @@ class KorbitExchange(Exchange):
         response_json = None
         try:
             response_json = res.json()
-        except JSONDecodeError as e:
+        except json.decoder.JSONDecodeError as e:
             print(e)
             return None
         else:
@@ -120,7 +120,7 @@ class KorbitExchange(Exchange):
         recents = self.get_recent(currency)
         while recents is None:
             time.sleep(1)
-            ticker = self.get_recent(currency)
+            recents = self.get_recent(currency)
 
         states = []
         last = float(ticker['last'])
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     currency = "BTC"
     # print(korbitExchange.get_ticker(currency))
     # print(korbitExchange.get_orderbook(currency))
-    # print(korbitExchange.get_recent(currency))
+    print(korbitExchange.get_recent(currency))
     last, volume, states = korbitExchange.get_states(currency)
     print(len(states))
     print(states)

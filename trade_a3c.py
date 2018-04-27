@@ -316,5 +316,5 @@ if __name__ == "__main__":
         else:
             print("Usage: %s -e exchange -c currency" % sys.argv[0])
 
-    global_agent = A3CAgent(Env(5000*10000, exchange=exchange, currency=currency))
+    global_agent = A3CAgent(Env(5000*10000, exchange=exchange, currency=currency, percent_per_trade=0.01))
     global_agent.train()

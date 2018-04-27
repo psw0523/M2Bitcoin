@@ -13,7 +13,9 @@ class BithumbExchange(Exchange):
     BASE_API_URL = "https://api.bithumb.com"
     TRADE_CURRENCY_TYPE = ["BTC", "ETH", "DASH", "LTC", "ETC", "XRP", "BCH",
             "XMR", "ZEC", "QTUM", "BTG", "EOS", "ICX", "VEN", "TRX", "ELF",
-            "MITH"]
+            "MITH", "OMG"]
+
+    QUERY_RUNNING = False
 
     def __init__(self):
         config = configparser.ConfigParser()
@@ -32,21 +34,26 @@ class BithumbExchange(Exchange):
         ticker_api_path = "/public/ticker/{currency}".format(currency=currency_type)
         url_path = self.BASE_API_URL + ticker_api_path
         res = requests.get(url_path)
-        response_json = res.json()
-        result={}
-        result["timestamp"] = str(response_json['data']["date"])
-        result["start"] = response_json['data']["opening_price"]
-        result["last"] = response_json['data']["closing_price"]
-        result["bid"] = response_json['data']["buy_price"]
-        result["ask"] = response_json['data']["sell_price"]
-        result["high"] = response_json['data']["max_price"]
-        result["low"] = response_json['data']["min_price"]
-        result["average"] = response_json['data']["average_price"]
-        result["volume"] = response_json['data']["volume_1day"]
-        # units same to volume
-        # result["units"] = response_json['data']["units_traded"]
-        result["volume7"] = response_json['data']["volume_7day"]
-        return result
+        try:
+            response_json = res.json()
+        except json.decoder.JSONDecodeError as e:
+            print(e)
+            return None
+        else:
+            result={}
+            result["timestamp"] = str(response_json['data']["date"])
+            result["start"] = response_json['data']["opening_price"]
+            result["last"] = response_json['data']["closing_price"]
+            result["bid"] = response_json['data']["buy_price"]
+            result["ask"] = response_json['data']["sell_price"]
+            result["high"] = response_json['data']["max_price"]
+            result["low"] = response_json['data']["min_price"]
+            result["average"] = response_json['data']["average_price"]
+            result["volume"] = response_json['data']["volume_1day"]
+            # units same to volume
+            # result["units"] = response_json['data']["units_traded"]
+            result["volume7"] = response_json['data']["volume_7day"]
+            return result
 
     def get_orderbook(self, currency_type=None, count=10):
         if currency_type is None:
@@ -75,17 +82,34 @@ class BithumbExchange(Exchange):
                 "/public/recent_transactions/{currency}?count={count}".format(currency=currency_type, count=count)
         url_path = self.BASE_API_URL + recent_api_path
         res = requests.get(url_path)
-        response_json = res.json()
-        result = response_json['data']
+        try:
+            response_json = res.json()
+        except json.decoder.JSONDecodeError as e:
+            print(e)
+            return None
+        else:
+            result = response_json['data']
         return result
 
     def get_fee(self):
         return 0.15
 
     def get_states(self, currency):
+        while self.QUERY_RUNNING is True:
+            time.sleep(1)
+
+        self.QUERY_RUNNING = True
+
         ticker = self.get_ticker(currency)
-        orderbook = self.get_orderbook(currency, self.data_count)
+        while ticker is None:
+            time.sleep(1)
+            ticker = self.get_ticker(currency)
+
+        # orderbook = self.get_orderbook(currency, self.data_count)
         recents = self.get_recent(currency, self.data_count)
+        while recents is None:
+            time.sleep(1)
+            recents = self.get_recent(currency, self.data_count)
 
         states = []
         last = float(ticker['last'])
@@ -93,60 +117,65 @@ class BithumbExchange(Exchange):
 
         basis = last
 
-        ## ticker
-        # bid
-        val = float(ticker['bid'])
-        val = val / basis
-        states.append(val)
-
-        # ask
-        val = float(ticker['ask'])
-        val = val / basis 
-        states.append(val)
-
-        # high
-        val = float(ticker['high'])
-        val = val / basis 
-        states.append(val)
-
-        # low 
-        val = float(ticker['low'])
-        val = val / basis 
-        states.append(val)
-
-        ## orderbook
-        bids = orderbook['bids']
-        for bid in bids:
-            q = float(bid['quantity'])
-            p = float(bid['price'])
-            p = p / basis 
-            q = q * p
-            states.append(q)
-
-        asks = orderbook['asks']
-        for ask in asks:
-            q = float(ask['quantity'])
-            p = float(ask['price'])
-            if p < basis:
-                p = -p
-            p = p / basis 
-            q = q * p
-            states.append(q)
+        # ## ticker
+        # # bid
+        # val = float(ticker['bid'])
+        # val = val / basis
+        # states.append(val)
+        #
+        # # ask
+        # val = float(ticker['ask'])
+        # val = val / basis 
+        # states.append(val)
+        #
+        # # high
+        # val = float(ticker['high'])
+        # val = val / basis 
+        # states.append(val)
+        #
+        # # low 
+        # val = float(ticker['low'])
+        # val = val / basis 
+        # states.append(val)
+        #
+        # ## orderbook
+        # bids = orderbook['bids']
+        # for bid in bids:
+        #     q = float(bid['quantity'])
+        #     p = float(bid['price'])
+        #     p = p / basis 
+        #     q = q * p
+        #     states.append(q)
+        #
+        # asks = orderbook['asks']
+        # for ask in asks:
+        #     q = float(ask['quantity'])
+        #     p = float(ask['price'])
+        #     if p < basis:
+        #         p = -p
+        #     p = p / basis 
+        #     q = q * p
+        #     states.append(q)
 
         ## recent
         for recent in recents:
             t = recent['type'].strip()
             u = float(recent['units_traded'])
             p = float(recent['price'])
-            if t == 'ask':
-                p = p / last
-                p = p * u
-                states.append(p)
-            else:
-                p = p / last
-                p = p * u
-                p = -p
-                states.append(p)
+            # if t == 'ask':
+            #     p = p / last
+            #     p = p * u
+            #     states.append(p)
+            # else:
+            #     p = p / last
+            #     p = p * u
+            #     p = -p
+            #     states.append(p)
+            p = p / last
+            states.append(p)
+            states.append(u)
+
+        self.QUERY_RUNNING = False
 
         return last, volume, states
 
@@ -164,9 +193,9 @@ if __name__ == "__main__":
     #     print(n, " --> ", bitThumbExchange.get_recent(n, 10))
     currency = "BTC"
     count = 20
-    print("get_ticker results ------------------")
-    print(bitThumbExchange.get_ticker(currency))
-    print("get_orderbook results ------------------")
-    print(bitThumbExchange.get_orderbook(currency, count))
+    # print("get_ticker results ------------------")
+    # print(bitThumbExchange.get_ticker(currency))
+    # print("get_orderbook results ------------------")
+    # print(bitThumbExchange.get_orderbook(currency, count))
     print("get_recent results ------------------")
     print(bitThumbExchange.get_recent(currency, count))

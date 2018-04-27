@@ -193,6 +193,9 @@ class Env():
         #
         print(info)
 
+        if self.earning_rate < -0.1:
+            self.done = True
+
         return states, reward, self.done, info
 
     def state_size(self):
