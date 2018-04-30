@@ -97,22 +97,24 @@ class Env():
 
         if buy_count > 0:
             self.cash_asset -= buy_price
+            self.cash_asset -= fee
             total_buy_cost = self.buy_count * self.average_cost + self.current_price * buy_count
             self.buy_count += buy_count
             self.buy_count = math.floor(self.buy_count * 100) / 100
             self.average_cost = int(total_buy_cost / self.buy_count)
             self.fee_sum += fee
 
-            earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            if self.earning_rate != 0.0:
-                reward = earning_rate - self.earning_rate
-            else:
-                reward = earning_rate
-            self.earning_rate = earning_rate
+            # earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
+            # if self.earning_rate != 0.0:
+            #     reward = earning_rate - self.earning_rate
+            # else:
+            #     reward = earning_rate
+            # self.earning_rate = earning_rate
         else:
             if self.buy_count <= 0:
                 self.done = True
-            reward = -0.00001
+            # reward = -0.00001
+            reward = -0.001
             
         return reward
 
@@ -137,7 +139,7 @@ class Env():
             # calculate earning_rate
             # earning_rate = ((평단 * 수량 + 현금) - 초기투자금)/초기투자금
             earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            if self.earning_rate > 0:
+            if self.earning_rate != 0.0:
                 reward = earning_rate - self.earning_rate
             else:
                 reward = earning_rate
@@ -149,7 +151,11 @@ class Env():
         else:
             if self.cash_asset <= 0:
                 self.done = True
-            reward = -0.00001
+            # reward = -0.00001
+            reward = -0.001
+
+        if reward > 0.0:
+            print("plus reward ---------------> ", reward)
 
         return reward
 
@@ -235,6 +241,8 @@ class Env():
         states.append(margin)
 
         states = np.array(states)
+
+        print(states)
         return last, states
 
 

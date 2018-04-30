@@ -8,12 +8,17 @@ import base64
 import hashlib
 import hmac
 import urllib
+import numpy as np
 
 class BithumbExchange(Exchange):
     BASE_API_URL = "https://api.bithumb.com"
     TRADE_CURRENCY_TYPE = ["BTC", "ETH", "DASH", "LTC", "ETC", "XRP", "BCH",
             "XMR", "ZEC", "QTUM", "BTG", "EOS", "ICX", "VEN", "TRX", "ELF",
-            "MITH", "OMG"]
+            "MCO", "MITH", "OMG", "KNC"]
+    TRADE_UNIT = {"BTC": 1000, "ETH": 500, "DASH": 500, "LTC": 100, "ETC": 10,
+            "XRP": 1, "BCH": 1000, "XMR": 100, "ZEC": 100, "QTUM": 10, 
+            "BTG": 50, "EOS": 5, "ICX": 1, "VEN": 1, "TRX": 1, "ELF": 1,
+            "MCO": 5, "MITH": 1, "OMG": 10, "KNC": 1}
 
     QUERY_RUNNING = False
 
@@ -23,7 +28,7 @@ class BithumbExchange(Exchange):
         self.CLIENT_ID = config['BITHUMB']['connect_key']
         self.CLIENT_SECRET = config['BITHUMB']['secret_key']
         self.USER_NAME = config['BITHUMB']['username']
-        self.data_count = 10
+        self.data_count = 20
 
     def get_ticker(self, currency_type=None):
         if currency_type is None:
@@ -65,12 +70,17 @@ class BithumbExchange(Exchange):
                 "/public/orderbook/{currency}?count={count}".format(currency=currency_type, count=count)
         url_path = self.BASE_API_URL + orderbook_api_path
         res = requests.get(url_path)
-        response_json = res.json()
-        result={}
-        result["timestamp"] = str(response_json['data']["timestamp"])
-        result["bids"] = response_json['data']['bids']
-        result["asks"] = response_json['data']['asks']
-        return result
+        try:
+            response_json = res.json()
+        except json.decoder.JSONDecodeError as e:
+            print(e)
+            return None
+        else:
+            result={}
+            result["timestamp"] = str(response_json['data']["timestamp"])
+            result["bids"] = response_json['data']['bids']
+            result["asks"] = response_json['data']['asks']
+            return result
 
     def get_recent(self, currency_type=None, count=10):
         if currency_type is None:
@@ -105,75 +115,65 @@ class BithumbExchange(Exchange):
             time.sleep(1)
             ticker = self.get_ticker(currency)
 
-        # orderbook = self.get_orderbook(currency, self.data_count)
-        recents = self.get_recent(currency, self.data_count)
-        while recents is None:
+        orderbook = self.get_orderbook(currency, self.data_count)
+        while orderbook is None:
             time.sleep(1)
-            recents = self.get_recent(currency, self.data_count)
+            orderbook = self.get_orderbook(currency, self.data_count)
 
-        states = []
+        price = int(ticker['last'])
+        trade_unit = self.TRADE_UNIT[currency]
+
+        bid_states = {}
+        ask_states = {}
+
+        for i in range(0, self.data_count):
+            c = price - i * trade_unit
+            bid_states[str(c)] = 0.0
+
+        for i in range(0, self.data_count):
+            c = price + i * trade_unit
+            ask_states[str(c)] = 0.0
+
+        bids = orderbook['bids']
+        for bid in bids:
+            # print("bid: ", bid)
+            if bid['price'] in bid_states.keys():
+                bid_states[bid['price']] = bid['quantity']
+
+        # print(bid_states)
+        bid_values = []
+        for bid in bid_states.values():
+            bid_values.append(float(bid))
+
+        # print(bid_values)
+        np_bids = np.array(bid_values)
+        mean = np.mean(np_bids)
+        np_bids = np_bids / mean
+        # print("bids --->")
+        # print(np_bids)
+
+        asks = orderbook['asks']
+        # print("asks order")
+        # print(asks)
+        for ask in asks:
+            if ask['price'] in ask_states.keys():
+                ask_states[ask['price']] = ask['quantity']
+
+        # print(ask_states)
+        ask_values = []
+        for ask in ask_states.values():
+            ask_values.append(float(ask))
+
+        # print(ask_values)
+        np_asks = np.array(ask_values)
+        mean = np.mean(np_asks)
+        np_asks = np_asks / mean
+        # print("asks --->")
+        # print(np_asks)
+
+        states = np_bids.tolist() + np_asks.tolist()
         last = float(ticker['last'])
         volume = float(ticker['volume'])
-
-        basis = last
-
-        # ## ticker
-        # # bid
-        # val = float(ticker['bid'])
-        # val = val / basis
-        # states.append(val)
-        #
-        # # ask
-        # val = float(ticker['ask'])
-        # val = val / basis 
-        # states.append(val)
-        #
-        # # high
-        # val = float(ticker['high'])
-        # val = val / basis 
-        # states.append(val)
-        #
-        # # low 
-        # val = float(ticker['low'])
-        # val = val / basis 
-        # states.append(val)
-        #
-        # ## orderbook
-        # bids = orderbook['bids']
-        # for bid in bids:
-        #     q = float(bid['quantity'])
-        #     p = float(bid['price'])
-        #     p = p / basis 
-        #     q = q * p
-        #     states.append(q)
-        #
-        # asks = orderbook['asks']
-        # for ask in asks:
-        #     q = float(ask['quantity'])
-        #     p = float(ask['price'])
-        #     if p < basis:
-        #         p = -p
-        #     p = p / basis 
-        #     q = q * p
-        #     states.append(q)
-
-        ## recent
-        for recent in recents:
-            t = recent['type'].strip()
-            u = float(recent['units_traded'])
-            p = float(recent['price'])
-            # if t == 'ask':
-            #     p = p / last
-            #     p = p * u
-            #     states.append(p)
-            # else:
-            #     p = p / last
-            #     p = p * u
-            #     p = -p
-            #     states.append(p)
-            p = p / last
-            states.append(p)
-            states.append(u)
 
         self.QUERY_RUNNING = False
 
@@ -191,11 +191,82 @@ if __name__ == "__main__":
     # print("get_recent results ------------------")
     # for n in bitThumbExchange.TRADE_CURRENCY_TYPE:
     #     print(n, " --> ", bitThumbExchange.get_recent(n, 10))
-    currency = "BTC"
-    count = 20
+    # currency = "BTC"
+    # count = 20
     # print("get_ticker results ------------------")
     # print(bitThumbExchange.get_ticker(currency))
     # print("get_orderbook results ------------------")
     # print(bitThumbExchange.get_orderbook(currency, count))
-    print("get_recent results ------------------")
-    print(bitThumbExchange.get_recent(currency, count))
+    # print("get_recent results ------------------")
+    # print(bitThumbExchange.get_recent(currency, count))
+    # ticker = bitThumbExchange.get_ticker(currency)
+    # print("Current Price: ", ticker['last'])
+    # print("Current Volume: ", ticker['volume'])
+
+    # for n in bitThumbExchange.TRADE_CURRENCY_TYPE:
+    #     bid_states = {}
+    #     ask_states = {}
+    #
+    #     ticker = bitThumbExchange.get_ticker(n)
+    #     print("-----------------------------------------------")
+    #     print("CURRENCY ===> ", n)
+    #     print("Current Price: ", ticker['last'])
+    #     print("Current Volume: ", ticker['volume'])
+    #     
+    #     price = int(ticker['last'])
+    #     trade_unit = bitThumbExchange.TRADE_UNIT[n]
+    #
+    #     for i in range(0, 20):
+    #         c = price - i * trade_unit
+    #         bid_states[str(c)] = 0.0
+    #
+    #     for i in range(0, 20):
+    #         c = price + i * trade_unit
+    #         ask_states[str(c)] = 0.0
+    #
+    #     # print(ask_states)
+    #
+    #     orderbook = bitThumbExchange.get_orderbook(n, 20)
+    #
+    #     bids = orderbook['bids']
+    #     for bid in bids:
+    #         # print("bid: ", bid)
+    #         if bid['price'] in bid_states.keys():
+    #             bid_states[bid['price']] = bid['quantity']
+    #
+    #     # print(bid_states)
+    #     bid_values = []
+    #     for bid in bid_states.values():
+    #         bid_values.append(float(bid))
+    #
+    #     # print(bid_values)
+    #     np_bids = np.array(bid_values)
+    #     mean = np.mean(np_bids)
+    #     np_bids = np_bids / mean
+    #     print("bids --->")
+    #     print(np_bids)
+    #
+    #     asks = orderbook['asks']
+    #     # print("asks order")
+    #     # print(asks)
+    #     for ask in asks:
+    #         if ask['price'] in ask_states.keys():
+    #             ask_states[ask['price']] = ask['quantity']
+    #
+    #     # print(ask_states)
+    #     ask_values = []
+    #     for ask in ask_states.values():
+    #         ask_values.append(float(ask))
+    #
+    #     # print(ask_values)
+    #     np_asks = np.array(ask_values)
+    #     mean = np.mean(np_asks)
+    #     np_asks = np_asks / mean
+    #     print("asks --->")
+    #     print(np_asks)
+
+    for n in bitThumbExchange.TRADE_CURRENCY_TYPE:
+        states = bitThumbExchange.get_states(n)
+        print("----------------------------------------------")
+        print("Currency: " + n)
+        print(states)

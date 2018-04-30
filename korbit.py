@@ -72,12 +72,18 @@ class KorbitExchange(Exchange):
                 "/orderbook?currency_pair={currency}".format(currency=my_currency)
         url_path = self.BASE_API_URL + orderbook_api_path
         res = requests.get(url_path)
-        response_json = res.json()
-        result={}
-        result["timestamp"] = str(response_json['timestamp'])
-        result["bids"] = response_json['bids']
-        result["asks"] = response_json['asks']
-        return result
+        response_json = None
+        try:
+            response_json = res.json()
+        except json.decoder.JSONDecodeError as e:
+            print(e)
+            return None
+        else:
+            result={}
+            result["timestamp"] = str(response_json['timestamp'])
+            result["bids"] = response_json['bids']
+            result["asks"] = response_json['asks']
+            return result
 
     def get_recent(self, currency_type=None, count=10):
         if currency_type is None:
@@ -188,9 +194,13 @@ if __name__ == "__main__":
     korbitExchange = KorbitExchange()
     currency = "BTC"
     # print(korbitExchange.get_ticker(currency))
-    # print(korbitExchange.get_orderbook(currency))
-    print(korbitExchange.get_recent(currency))
-    last, volume, states = korbitExchange.get_states(currency)
-    print(len(states))
-    print(states)
+    orderbook = korbitExchange.get_orderbook(currency)
+    bids = orderbook['bids']
+    asks = orderbook['asks']
+    print("bids len: ", len(bids))
+    print("asks len: ", len(asks))
+    # print(korbitExchange.get_recent(currency))
+    # last, volume, states = korbitExchange.get_states(currency)
+    # print(len(states))
+    # print(states)
     # print(korbitExchange.get_states(currency))
