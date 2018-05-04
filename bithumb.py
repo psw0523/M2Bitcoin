@@ -233,6 +233,7 @@ class BithumbExchange(Exchange):
         states.append(high)
         states.append(low)
         states.append(volume)
+        states.append(recent_type)
 
         last = float(ticker['last'])
         return last, volume, states
