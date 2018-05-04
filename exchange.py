@@ -20,3 +20,7 @@ class Exchange(ABC):
     @abstractmethod
     def get_states(self, currency):
         pass
+
+    @abstractmethod
+    def reset(self):
+        pass

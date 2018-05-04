@@ -58,20 +58,35 @@ class Env():
         self.earning_rate = 0.0
         self.fee_sum = 0
         self.done = False
+        self.exchange.reset()
 
         self.current_price, states = self.get_states()
         return states
 
-    def do_nothing(self):
-        reward = 0.0
+    def calc_earning_rate(self):
+        # earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
+        earning_rate = ((self.current_price * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
+        return earning_rate
 
-        # if self.buy_count > 0:
-        #     if self.average_cost < self.current_price:
-        #         reward = -0.0001
-        # else:
-        #     reward = -0.00001
+    def fixup_reward(self):
+        earning_rate = self.calc_earning_rate()
+        if self.earning_rate != 0:
+            reward = earning_rate - self.earning_rate
+        else:
+            reward = earning_rate
+
+        self.earning_rate = earning_rate
+
+        if reward != 0.0:
+            print("REWARD ==================> ", reward)
 
         return reward
+
+    def do_nothing(self):
+        # reward = 0.0
+        # reward = self.fixup_reward()
+        # return reward
+        return 0
 
     def buy(self):
         buy_count = 0.0
@@ -104,19 +119,15 @@ class Env():
             self.average_cost = int(total_buy_cost / self.buy_count)
             self.fee_sum += fee
 
-            # earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            # if self.earning_rate != 0.0:
-            #     reward = earning_rate - self.earning_rate
-            # else:
-            #     reward = earning_rate
-            # self.earning_rate = earning_rate
+            # reward = self.fixup_reward()
         else:
             if self.buy_count <= 0:
                 self.done = True
             # reward = -0.00001
-            reward = -0.001
+            # reward = -0.001
+            # reward = self.fixup_reward()
             
-        return reward
+        return 0
 
     def sell(self):
         sell_count = 0.0
@@ -136,28 +147,19 @@ class Env():
             self.buy_count = math.floor(self.buy_count * 100) / 100
             self.cash_asset += sell_price
 
-            # calculate earning_rate
-            # earning_rate = ((평단 * 수량 + 현금) - 초기투자금)/초기투자금
-            earning_rate = ((self.average_cost * self.buy_count + self.cash_asset) - self.initial_investment) / self.initial_investment
-            if self.earning_rate != 0.0:
-                reward = earning_rate - self.earning_rate
-            else:
-                reward = earning_rate
-            self.earning_rate = earning_rate
-
             if self.buy_count <= 0:
                 self.buy_count = 0.0
                 self.average_cost = 0
+
+            # reward = self.fixup_reward()
         else:
             if self.cash_asset <= 0:
                 self.done = True
             # reward = -0.00001
-            reward = -0.001
+            # reward = -0.001
+            # reward = self.fixup_reward()
 
-        if reward > 0.0:
-            print("plus reward ---------------> ", reward)
-
-        return reward
+        return 0
 
     def step(self, action):
         """
@@ -171,11 +173,13 @@ class Env():
         info = {}
 
         if action == DO_NOTHING:
-            reward = self.do_nothing()
+            self.do_nothing()
         elif action == BUY:
-            reward = self.buy()
+            self.buy()
         elif action == SELL:
-            reward = self.sell()
+            self.sell()
+
+        reward = self.fixup_reward()
 
         info['initial_investment'] = self.initial_investment
         info['cash_asset'] = self.cash_asset
@@ -230,15 +234,15 @@ class Env():
         states.append(val)
 
         # cash percent
-        val = self.cash_asset / self.initial_investment
-        states.append(val)
+        # val = self.cash_asset / self.initial_investment
+        # states.append(val)
 
         # price change percent
-        margin = 0.0
-        if self.current_price > 0:
-            # margin = (last - self.current_price) / self.current_price
-            margin = last / self.current_price
-        states.append(margin)
+        # margin = 0.0
+        # if self.current_price > 0:
+        #     # margin = (last - self.current_price) / self.current_price
+        #     margin = last / self.current_price
+        # states.append(margin)
 
         states = np.array(states)
 

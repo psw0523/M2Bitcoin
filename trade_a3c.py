@@ -1,4 +1,4 @@
-from keras.layers import Dense, Flatten, Input
+from keras.layers import Dense, Flatten, Input, LSTM
 from keras.optimizers import RMSprop
 from keras import backend as K
 from keras.models import Model
@@ -44,13 +44,14 @@ class A3CAgent:
                 tf.summary.FileWriter('summary/m2bitcoin_a3c', self.sess.graph)
 
     def build_model(self, state_size, action_size):
-        input = Input(shape=(state_size,))
-        d = Dense(48, activation='relu',
-                kernel_initializer='he_uniform')(input)
-        d = Dense(48, activation='relu',
-                kernel_initializer='he_uniform')(d)
-        d = Dense(24, activation='relu',
-                kernel_initializer='he_uniform')(d)
+        input = Input(shape=(1, state_size))
+        d = LSTM(48, kernel_initializer='he_uniform')(input)
+        # d = Dense(48, activation='relu',
+        #         kernel_initializer='he_uniform')(input)
+        # d = Dense(48, activation='relu',
+        #         kernel_initializer='he_uniform')(d)
+        # d = Dense(24, activation='relu',
+        #         kernel_initializer='he_uniform')(d)
 
         policy = Dense(action_size, activation='softmax')(d)
         value = Dense(1, activation='linear')(d)
@@ -174,13 +175,15 @@ class Agent(threading.Thread):
         self.t = 0
 
     def build_local_model(self, state_size, action_size):
-        input = Input(shape=(state_size,))
-        d = Dense(48, activation='relu',
-                kernel_initializer='he_uniform')(input)
-        d = Dense(48, activation='relu',
-                kernel_initializer='he_uniform')(d)
-        d = Dense(24, activation='relu',
-                kernel_initializer='he_uniform')(d)
+        input = Input(shape=(1, state_size))
+        d = LSTM(48, kernel_initializer='he_uniform')(input)
+        # input = Input(shape=(state_size,))
+        # d = Dense(48, activation='relu',
+        #         kernel_initializer='he_uniform')(input)
+        # d = Dense(48, activation='relu',
+        #         kernel_initializer='he_uniform')(d)
+        # d = Dense(24, activation='relu',
+        #         kernel_initializer='he_uniform')(d)
 
         policy = Dense(action_size, activation='softmax')(d)
         value = Dense(1, activation='linear')(d)
@@ -220,7 +223,8 @@ class Agent(threading.Thread):
 
                 next_state, reward, done, info = env.step(action)
 
-                self.avg_p_max += np.amax(self.actor.predict(next_state.reshape((1, self.state_size))))
+                # self.avg_p_max += np.amax(self.actor.predict(next_state.reshape((1, self.state_size))))
+                self.avg_p_max += np.amax(self.actor.predict(next_state.reshape((1, 1, self.state_size))))
 
                 score += reward
                 reward = np.clip(reward, -1., 1.)
@@ -255,7 +259,8 @@ class Agent(threading.Thread):
         running_add = 0
 
         if not done:
-            running_add = self.critic.predict(self.states[-1].reshape(1, self.state_size))[0]
+            # running_add = self.critic.predict(self.states[-1].reshape(1, self.state_size))[0]
+            running_add = self.critic.predict(self.states[-1].reshape(1, 1, self.state_size))[0]
 
         for t in reversed(range(0, len(rewards))):
             running_add = running_add * self.discount_factor + rewards[t]
@@ -267,9 +272,9 @@ class Agent(threading.Thread):
     def train_model(self, done):
         discounted_prediction = self.discounted_prediction(self.rewards, done)
 
-        states = np.zeros((len(self.states), self.state_size))
+        states = np.zeros((len(self.states), 1, self.state_size))
         for i in range(len(self.states)):
-            states[i] = self.states[i]
+            states[i] = self.states[i].reshape(1, self.state_size)
 
         values = self.critic.predict(states)
         values = np.reshape(values, len(values))
@@ -286,12 +291,13 @@ class Agent(threading.Thread):
         self.local_critic.set_weights(self.critic.get_weights())
 
     def get_action(self, state):
-        policy = self.local_actor.predict(state.reshape(1, self.state_size))[0]
+        # policy = self.local_actor.predict(state.reshape(1, self.state_size))[0]
+        policy = self.local_actor.predict(state.reshape(1, 1, self.state_size))[0]
         action_index = np.random.choice(self.action_size, 1, p=policy)[0]
         return action_index, policy
 
     def append_sample(self, state, action, reward):
-        self.states.append(state)
+        self.states.append(state.reshape(1, self.state_size))
         act = np.zeros(self.action_size)
         act[action] = 1
         self.actions.append(act)
