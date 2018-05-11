@@ -178,8 +178,7 @@ class Env():
             self.buy()
         elif action == SELL:
             self.sell()
-
-        reward = self.fixup_reward()
+            reward = self.fixup_reward()
 
         info['initial_investment'] = self.initial_investment
         info['cash_asset'] = self.cash_asset
@@ -203,7 +202,7 @@ class Env():
         #
         print(info)
 
-        if self.earning_rate < -0.1:
+        if self.earning_rate < -0.03:
             self.done = True
 
         return states, reward, self.done, info

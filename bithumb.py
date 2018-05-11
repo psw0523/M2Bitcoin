@@ -193,11 +193,17 @@ class BithumbExchange(Exchange):
 
         while found_recent is False:
             ticker = self.get_ticker(currency)
+            if ticker is None:
+                time.sleep(0.3)
+                continue
             ticker_date = datetime.datetime.fromtimestamp(int(ticker['timestamp'])/1000).strftime('%Y-%m-%d %H:%M:%S')
             ticker['date'] = ticker_date
             self.ticker_list.append(ticker)
 
             recent_list = self.get_recent(currency, 1)
+            if recent_list is None:
+                time.sleep(0.3)
+                continue
             recent = recent_list[0]
             if len(self.prev_recent.keys()) == 0:
                 ticker, ticker_index = self.find_ticker_for_recent(recent)
