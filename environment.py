@@ -112,8 +112,9 @@ class Env():
 
         if buy_count > 0:
             self.cash_asset -= buy_price
-            self.cash_asset -= fee
-            total_buy_cost = self.buy_count * self.average_cost + self.current_price * buy_count
+            #  self.cash_asset -= fee
+            #  total_buy_cost = self.buy_count * self.average_cost + self.current_price * buy_count
+            total_buy_cost = self.buy_count * self.average_cost + real_price * buy_count
             self.buy_count += buy_count
             self.buy_count = math.floor(self.buy_count * 100) / 100
             self.average_cost = int(total_buy_cost / self.buy_count)
@@ -176,11 +177,13 @@ class Env():
             self.do_nothing()
         elif action == BUY:
             self.buy()
+            reward = self.fixup_reward()
         elif action == SELL:
             self.sell()
             reward = self.fixup_reward()
 
         info['initial_investment'] = self.initial_investment
+        info['total asset'] = self.cash_asset + self.average_cost * self.buy_count
         info['cash_asset'] = self.cash_asset
         info['average_cost'] = self.average_cost
         info['buy_count'] = self.buy_count
